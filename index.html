@@ -68,7 +68,7 @@
 
 <header>
   <img src="assets/jmcu.jpg" alt="JMCU" onerror="this.replaceWith(Object.assign(document.createElement('h1'),{className:'fallback',textContent:'JMCU'}))">
-  <p class="sub">DashTron Web Flasher · ช่องทางทดลองใช้งาน (test)</p>
+  <p class="sub">DashTron Web Flasher · ช่องทางทดลองใช้งาน (CYD 2.8")</p>
 </header>
 
 <main class="stage">
@@ -86,8 +86,8 @@
           <select id="baud">
             <option value="115200">115200</option>
             <option value="230400">230400</option>
-            <option value="460800" selected>460800</option>
-            <option value="921600">921600</option>
+            <option value="460800">460800</option>
+            <option value="921600" selected>921600</option>
           </select>
         </label>
         <label><input type="checkbox" id="chkErase"> ลบ flash ทั้งหมดก่อนเขียน</label>
@@ -117,7 +117,7 @@
             <label>Flash address
               <input type="text" id="addr" value="0x10000" size="10">
             </label>
-            <span class="status">ใช้กับ manifest แบบไฟล์เดียว · ไฟล์ merged ใช้ 0x0 · ถ้า manifest ระบุ <code>files[]</code> พร้อม address จะใช้ค่าจาก manifest แทน</span>
+           
           </div>
         </details>
       </div>
@@ -131,9 +131,7 @@
           <button class="danger" id="btnErase" disabled>Erase Flash</button>
           <button class="ghost" id="btnReset" disabled>Reset บอร์ด</button>
         </div>
-        <p class="hint">
-          ตัวอย่าง address — ไฟล์ merged: <code>0x0</code> · แยกไฟล์ ESP32: bootloader <code>0x1000</code>, partitions <code>0x8000</code>, แอป <code>0x10000</code> · ESP32-S3/C3: bootloader <code>0x0</code>
-        </p>
+       
       </div>
 
       <div class="bar" style="margin:14px 0 6px"><i id="prog"></i></div>

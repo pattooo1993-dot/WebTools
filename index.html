@@ -42,6 +42,8 @@
   .chip small{color:var(--muted)}
   .status{font-size:.92rem;color:var(--muted)}
   .status.ok{color:var(--ok)} .status.err{color:var(--err)}
+  .portbadge{display:none;align-items:center;gap:8px;background:#0e151d;border:1px solid var(--ok);color:var(--ok);border-radius:10px;padding:8px 12px;font-size:.92rem}
+  .portbadge.show{display:inline-flex}
   .bar{height:12px;border-radius:99px;background:#0e151d;border:1px solid var(--line);overflow:hidden}
   .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#18c6ff,#3ddc84);transition:width .15s}
   pre#log{margin:0;max-height:220px;overflow:auto;background:#05080c;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:.8rem;color:#b8c7d6;white-space:pre-wrap}
@@ -73,9 +75,10 @@
       <h2>2) เลือก COM port</h2>
       <div class="row">
         <button id="btnPort" class="ghost">เลือก COM port…</button>
+        <span class="portbadge" id="portBadge">✔ <span id="portName"></span></span>
         <span class="status" id="portInfo">ยังไม่ได้เลือกพอร์ต</span>
       </div>
-      <p class="status" style="margin:8px 0 0">ถ้าไม่เจอพอร์ต: ลง driver CP210x / CH340 แล้วเสียบสาย USB ใหม่ (บางบอร์ดต้องกดปุ่ม BOOT ค้างตอนเริ่มเชื่อมต่อ)</p>
+      <p class="status" style="margin:8px 0 0">หมายเหตุ: เบราว์เซอร์ไม่เปิดเผยชื่อ COM3/COM4 ให้เว็บ จึงแสดงเป็นชนิดชิป USB แทน · ถ้าไม่เจอพอร์ต: ลง driver CP210x / CH340 แล้วเสียบสาย USB ใหม่ (บางบอร์ดต้องกดปุ่ม BOOT ค้างตอนเริ่มเชื่อมต่อ)</p>
     </section>
 
     <section class="box">
@@ -99,9 +102,9 @@
         <summary>ตั้งค่าขั้นสูง</summary>
         <div class="row" style="margin-top:8px">
           <label>Flash address
-            <input id="addr" value="0x10000" size="10">
+            <input id="addr" value="0x100000" size="10">
           </label>
-          <span class="status">ไฟล์ .ino.bin จาก Arduino เป็นแอปอย่างเดียว ใช้ 0x10000 (ต้องมี bootloader/partition อยู่แล้ว) · ถ้าเป็นไฟล์ merged ให้ใช้ 0x0</span>
+          <span class="status">ใช้กับ manifest แบบไฟล์เดียว (ค่าเริ่มต้น 0x100000) · ถ้าเป็นไฟล์ merged ให้ใช้ 0x0 · ถ้า manifest ระบุ <code>files[]</code> พร้อม address ของแต่ละไฟล์ จะใช้ค่าจาก manifest แทน</span>
         </div>
       </details>
     </section>
@@ -144,12 +147,17 @@ async function loadManifest(){
   }
 }
 
+function variantSize(v){
+  if(Array.isArray(v.files)) return v.files.reduce((a,f)=>a+(f.size||0),0);
+  return v.size || 0;
+}
+
 function renderVariants(){
   const wrap = $("variants"); wrap.innerHTML = "";
   manifest.variants.forEach((v,i)=>{
     const d = document.createElement("label");
     d.className = "chip";
-    const kb = (v.size/1024).toFixed(0);
+    const kb = (variantSize(v)/1024).toFixed(0);
     const date = v.ts ? new Date(v.ts).toLocaleString("th-TH") : "";
     d.innerHTML = `<input type="radio" name="v" value="${i}"><b>${v.label}</b><small>${kb} KB${date ? " · " + date : ""}</small>`;
     d.onclick = () => { selected = v; [...wrap.children].forEach(c=>c.classList.remove("sel")); d.classList.add("sel"); updateBtn(); log("เลือกชิป " + v.chip); };
@@ -160,12 +168,28 @@ function renderVariants(){
 function updateBtn(){ $("btnFlash").disabled = !(selected && port) || busy; }
 
 /* ---------- Port ---------- */
+const USB_NAMES = {
+  "10C4:EA60":"CP210x (Silicon Labs)",
+  "1A86:7523":"CH340",
+  "1A86:55D4":"CH9102",
+  "303A:1001":"ESP32 native USB (S3/C3)",
+  "0403:6001":"FTDI FT232"
+};
+function portLabel(p){
+  const i = p.getInfo ? p.getInfo() : {};
+  if(!i.usbVendorId) return "Serial port (ไม่ทราบรุ่น)";
+  const hex = n => n.toString(16).toUpperCase().padStart(4,"0");
+  const key = hex(i.usbVendorId) + ":" + hex(i.usbProductId || 0);
+  return (USB_NAMES[key] || "USB อุปกรณ์ไม่รู้จัก") + ` [${key}]`;
+}
+
 $("btnPort").onclick = async () => {
   try{
     port = await navigator.serial.requestPort();
-    const i = port.getInfo ? port.getInfo() : {};
-    const id = i.usbVendorId ? `USB VID:${i.usbVendorId.toString(16).toUpperCase().padStart(4,"0")} PID:${(i.usbProductId||0).toString(16).toUpperCase().padStart(4,"0")}` : "Serial port";
-    $("portInfo").textContent = "เลือกแล้ว: " + id;
+    const id = portLabel(port);
+    $("portName").textContent = id;
+    $("portBadge").classList.add("show");
+    $("portInfo").textContent = "เลือกพอร์ตแล้ว";
     log("เลือกพอร์ต " + id);
     updateBtn();
   }catch(e){ log("ยกเลิกการเลือกพอร์ต"); }
@@ -178,6 +202,34 @@ function u8ToBinStr(u8){
   for(let i=0;i<u8.length;i+=CH) s += String.fromCharCode.apply(null, u8.subarray(i,i+CH));
   return s;
 }
+function parseAddr(v){
+  const n = typeof v === "number" ? v : parseInt(String(v).trim(), 16);
+  if(Number.isNaN(n)) throw new Error("Flash address ไม่ถูกต้อง: " + v);
+  return n;
+}
+
+/* ดึงรายการไฟล์ของ variant (รองรับทั้งแบบไฟล์เดียวและหลายไฟล์) */
+function filesOf(v){
+  if(Array.isArray(v.files) && v.files.length){
+    return v.files.map(f => ({ name:f.name||f.url, url:f.url, size:f.size, sha256:f.sha256, address:parseAddr(f.address) }));
+  }
+  return [{ name:v.name, url:v.url, size:v.size, sha256:v.sha256, address:parseAddr($("addr").value) }];
+}
+
+async function fetchFile(f){
+  setStatus("กำลังดาวน์โหลดไฟล์ " + f.name + " …");
+  const r = await fetch(f.url, {cache:"no-store"});
+  if(!r.ok) throw new Error(`ดาวน์โหลด ${f.name} ไม่สำเร็จ HTTP ${r.status}`);
+  const u8 = new Uint8Array(await r.arrayBuffer());
+  log(`ไฟล์ ${f.name} ขนาด ${u8.length} bytes → 0x${f.address.toString(16)}`);
+  if(f.sha256){
+    const h = toHex(await crypto.subtle.digest("SHA-256", u8));
+    if(h !== f.sha256.toLowerCase()) throw new Error(`SHA-256 ของ ${f.name} ไม่ตรงกับ manifest — ยกเลิกการติดตั้ง`);
+    log("ตรวจ SHA-256 ผ่าน: " + f.name);
+  }
+  if(f.size && f.size !== u8.length) log("คำเตือน: ขนาดไฟล์ " + f.name + " ไม่ตรงกับ manifest");
+  return u8;
+}
 
 /* ---------- Flash ---------- */
 $("btnFlash").onclick = async () => {
@@ -186,24 +238,15 @@ $("btnFlash").onclick = async () => {
   $("prog").style.width = "0%";
   let transport = null;
   try{
-    setStatus("กำลังดาวน์โหลดไฟล์ " + selected.name + " …");
-    const r = await fetch(selected.url, {cache:"no-store"});
-    if(!r.ok) throw new Error("ดาวน์โหลดไฟล์ไม่สำเร็จ HTTP " + r.status);
-    const u8 = new Uint8Array(await r.arrayBuffer());
-    log(`ไฟล์ ${selected.name} ขนาด ${u8.length} bytes`);
-
-    if(selected.sha256){
-      const h = toHex(await crypto.subtle.digest("SHA-256", u8));
-      if(h !== selected.sha256.toLowerCase()) throw new Error("SHA-256 ไม่ตรงกับ manifest — ยกเลิกการติดตั้ง");
-      log("ตรวจ SHA-256 ผ่าน");
+    const files = filesOf(selected);
+    const fileArray = [];
+    for(const f of files){
+      const u8 = await fetchFile(f);
+      fileArray.push({ data: u8ToBinStr(u8), address: f.address });
     }
-    if(selected.size && selected.size !== u8.length) log("คำเตือน: ขนาดไฟล์ไม่ตรงกับ manifest");
-
-    const addr = parseInt($("addr").value, 16);
-    if(Number.isNaN(addr)) throw new Error("Flash address ไม่ถูกต้อง");
 
     setStatus("กำลังเชื่อมต่อชิป…");
-    transport = new Transport(port, true);
+    transport = new Transport(port, false);
     const terminal = { clean(){}, writeLine:log, write:t=>{ logEl.textContent += t; } };
     const loader = new ESPLoader({
       transport,
@@ -215,21 +258,22 @@ $("btnFlash").onclick = async () => {
     log("ตรวจพบชิป: " + chip);
 
     setStatus("กำลังเขียน flash…");
+    const n = fileArray.length;
     await loader.writeFlash({
-      fileArray: [{ data: u8ToBinStr(u8), address: addr }],
+      fileArray,
       flashSize: "keep", flashMode: "keep", flashFreq: "keep",
       eraseAll: $("chkErase").checked,
       compress: true,
       reportProgress: (idx, written, total) => {
-        const p = Math.round(written/total*100);
+        const p = Math.round(((idx + written/total) / n) * 100);
         $("prog").style.width = p + "%";
         setStatus(`กำลังเขียน flash… ${p}%`);
       }
     });
     await loader.after();      // hard reset บอร์ด
     $("prog").style.width = "100%";
-    setStatus("✅ ติดตั้งสำเร็จ — บอร์ดรีสตาร์ทแล้ว", "ok");
-    log("เสร็จสิ้น");
+    setStatus("✅ เขียนเสร็จแล้ว — ถ้าบอร์ดไม่รีสตาร์ท ให้กดปุ่ม RESET หรือถอด/เสียบสาย USB ใหม่", "ok");
+    log("เสร็จสิ้น (ถ้าบอร์ดไม่บูต ให้เปิด Serial Monitor ที่ 115200 เพื่อดู error)");
   }catch(e){
     console.error(e);
     setStatus("❌ " + (e.message || e), "err");

@@ -1,0 +1,13 @@
+{
+  "name": "DashTron Trial",
+  "version": "2.0.0",
+  "new_install_prompt_erase": false,
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        { "path": "DashTron_merged.bin", "offset": 0 }
+      ]
+    }
+  ]
+}

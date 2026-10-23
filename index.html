@@ -90,7 +90,6 @@
             <option value="921600" selected>921600</option>
           </select>
         </label>
-        <label><input type="checkbox" id="chkErase"> ลบ flash ทั้งหมดก่อนเขียน</label>
         <span class="badge" id="badge">✔ <span id="badgeText"></span></span>
       </div>
       <div class="info" id="chipInfo"></div>
@@ -128,7 +127,6 @@
         <div class="row" style="margin-top:6px">
           <button class="ghost" id="btnAddRow">＋ เพิ่มไฟล์</button>
           <button id="btnProgram" disabled>⚡ Program</button>
-          <button class="danger" id="btnErase" disabled>Erase Flash</button>
           <button class="ghost" id="btnReset" disabled>Reset บอร์ด</button>
         </div>
        
@@ -176,7 +174,6 @@ function updateUI(){
   $("btnConnect").disabled = busy || connected;
   $("btnDisconnect").disabled = busy || !connected;
   $("btnProgram").disabled = busy || !connected;
-  $("btnErase").disabled = busy || !connected;
   $("btnReset").disabled = busy || !connected;
   $("btnFlash").disabled = busy || !connected || !selected;
   $("btnAddRow").disabled = busy;
@@ -339,7 +336,7 @@ async function doFlash(fileArray){
   await loader.writeFlash({
     fileArray,
     flashSize: "keep", flashMode: "keep", flashFreq: "keep",
-    eraseAll: $("chkErase").checked,
+    eraseAll: false,                    // เวอร์ชันทดลอง: ห้ามลบ flash ทั้งชิป (จะรีเซ็ตเวลาทดลอง)
     compress: true,
     reportProgress: (idx, written, total) => {
       const p = Math.round(((idx + written/total) / n) * 100);
@@ -417,18 +414,6 @@ $("btnProgram").onclick = () => runBusy(async () => {
   if(!fileArray.length) throw new Error("ยังไม่ได้เลือกไฟล์ .bin");
   await doFlash(fileArray);
 });
-
-$("btnErase").onclick = () => {
-  if(!confirm("ลบข้อมูลใน flash ทั้งหมด? (เฟิร์มแวร์เดิมจะหายและต้องติดตั้งใหม่)")) return;
-  runBusy(async () => {
-    await ensureReady();
-    setStatus("กำลังลบ flash…");
-    await loader.eraseFlash();
-    $("prog").style.width = "100%";
-    setStatus("✅ ลบ flash เรียบร้อย", "ok");
-    log("ลบ flash เสร็จสิ้น");
-  });
-};
 
 $("btnReset").onclick = () => runBusy(async () => {
   await ensureReady();

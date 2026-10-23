@@ -1,0 +1,17 @@
+{
+  "product": "DashTron",
+  "channel": "test",
+  "version": "2.0.0-trial",
+  "variants": [
+    {
+      "label": "CYD 2.8\" (ESP32)",
+      "chip": "ESP32",
+      "ts": 1761200000000,
+      "files": [
+        { "name": "DashTron_V3.ino.partitions.bin", "url": "https://raw.githubusercontent.com/jmcumicrocontrollerunit-eng/JmcuMicrocontroller/main/firmware-test/DashTron_V3.ino.partitions.bin", "address": "0x8000",  "size": 0, "sha256": "" },
+        { "name": "boot_app0.bin",                  "url": "https://raw.githubusercontent.com/jmcumicrocontrollerunit-eng/JmcuMicrocontroller/main/firmware-test/boot_app0.bin",                  "address": "0xE000",  "size": 0, "sha256": "" },
+        { "name": "DashTron_V3.ino.bin",            "url": "https://raw.githubusercontent.com/jmcumicrocontrollerunit-eng/JmcuMicrocontroller/main/firmware-test/DashTron_V3.ino.bin",            "address": "0x10000", "size": 0, "sha256": "" }
+      ]
+    }
+  ]
+}

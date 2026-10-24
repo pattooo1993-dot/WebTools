@@ -63,6 +63,22 @@
   footer{color:var(--muted);font-size:.8rem;padding:0 12px 24px;text-align:center}
   code{color:#b8c7d6}
   #dlCount{position:fixed;right:10px;bottom:8px;font-size:.7rem;color:var(--muted);opacity:.8;pointer-events:none;z-index:5}
+
+  /* ===== Software ตัวเต็ม + LINE ===== */
+  .cta{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:14px 0 0}
+  .cta button,.cta a{font:inherit;font-weight:600;border-radius:10px;padding:10px 18px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;line-height:1.2}
+  .btn-full{background:var(--accent);color:#04202b;border:0}
+  .btn-line{background:#06C755;color:#fff;border:0}
+  .btn-line:hover{background:#05b34c}
+  .line-fab{position:fixed;left:12px;bottom:12px;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.45);border-radius:999px!important;padding:12px 20px!important}
+  #presModal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.82);display:none;flex-direction:column}
+  #presModal.open{display:flex}
+  #presModal .bar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#0b1118;border-bottom:1px solid var(--line)}
+  #presModal .bar .ttl{flex:1;font-weight:600;font-size:.95rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #presModal .bar a,#presModal .bar button{font:inherit;font-size:.9rem;padding:7px 14px;border-radius:8px;cursor:pointer;text-decoration:none;font-weight:600}
+  #presModal .bar .btn-line{display:inline-flex;align-items:center;gap:6px}
+  #presModal iframe{flex:1;width:100%;border:0;background:#000}
+  @media (max-width:520px){#presModal .bar .ttl{display:none}.line-fab{left:8px;bottom:8px}}
 </style>
 </head>
 <body>
@@ -70,6 +86,10 @@
 <header>
   <img src="assets/jmcu.jpg" alt="JMCU" onerror="this.replaceWith(Object.assign(document.createElement('h1'),{className:'fallback',textContent:'JMCU'}))">
   <p class="sub">DashTron Web Flasher · ช่องทางทดลองใช้งาน (CYD 2.8")</p>
+  <div class="cta">
+    <button type="button" class="btn-full" id="btnFull">📊 Software ตัวเต็ม</button>
+    <a class="btn-line" href="https://lin.ee/qEiKChvX" target="_blank" rel="noopener">💬 LINE OA</a>
+  </div>
 </header>
 
 <main class="stage">
@@ -150,6 +170,28 @@
 <footer>JMCU Microcontroller Unit · เฟิร์มแวร์ทดลอง อาจไม่เสถียร</footer>
 
 <div id="dlCount">Download: <span id="dlNum">0</span></div>
+
+<a class="btn-line line-fab" href="https://lin.ee/qEiKChvX" target="_blank" rel="noopener" aria-label="แอด LINE OA">💬 LINE</a>
+
+<div id="presModal" role="dialog" aria-modal="true" aria-label="DashTron Gauge นำเสนอลูกค้า">
+  <div class="bar">
+    <span class="ttl">DashTron Gauge · Software ตัวเต็ม</span>
+    <a class="btn-line" href="https://lin.ee/qEiKChvX" target="_blank" rel="noopener">💬 LINE OA</a>
+    <button type="button" class="ghost" id="presClose">✕ ปิด</button>
+  </div>
+  <iframe id="presFrame" title="DashTron Gauge นำเสนอลูกค้า" allowfullscreen></iframe>
+</div>
+
+<script>
+(function(){
+  var m=document.getElementById('presModal'),f=document.getElementById('presFrame');
+  function open(){ if(!f.getAttribute('src')) f.setAttribute('src','presentation.html'); m.classList.add('open'); document.body.style.overflow='hidden'; }
+  function close(){ m.classList.remove('open'); document.body.style.overflow=''; }
+  document.getElementById('btnFull').addEventListener('click',open);
+  document.getElementById('presClose').addEventListener('click',close);
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') close(); });
+})();
+</script>
 
 <script type="module">
 import { ESPLoader, Transport } from "https://cdn.jsdelivr.net/npm/esptool-js@0.5.4/bundle.js";

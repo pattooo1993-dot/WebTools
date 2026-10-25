@@ -131,11 +131,12 @@
                  style="font-family:monospace;letter-spacing:2px;text-transform:uppercase;min-width:200px">
           <button id="btnRedeem">🔑 ยืนยันรหัส</button>
         </div>
+        <p class="status" id="countdown" style="font-size:20px;font-weight:700;display:none"></p>
         <p class="status" id="gateMsg">กรอกรหัสที่ได้รับจากผู้ขาย (ใช้ได้ครั้งเดียว)</p>
         <div class="chips" id="variants"></div>
         <p class="status" id="fwInfo"></p>
         <div class="row" style="margin-top:8px">
-          <button id="btnFlash" disabled>⚡ ติดตั้งเฟิร์มแวร์</button>
+          <button id="btnFlash" disabled style="display:none">⚡ ติดตั้งเฟิร์มแวร์</button>
         </div>
         <details style="margin-top:10px">
           <summary class="status" style="cursor:pointer">ตั้งค่าขั้นสูง</summary>
@@ -215,6 +216,9 @@ const terminal = {
 let manifest = null, selected = null;
 let port = null, transport = null, loader = null;
 let connected = false, busy = false, dirty = false;
+/* ขั้นตอนหน้าใส่รหัส: idle → checking → countdown → done */
+let gatePhase = "idle", autoStart = false, downloadsDone = false, deadline = 0, tick = null, abortCtl = null, flashOk = false;
+const COUNTDOWN_SEC = 60;
 
 if (!("serial" in navigator)) $("noSerial").style.display = "block";
 
@@ -226,6 +230,12 @@ function updateUI(){
   $("btnReset").disabled = busy || !connected;
   $("btnFlash").disabled = busy || !connected || !selected;
   $("btnAddRow").disabled = busy;
+  /* ต้องต่อบอร์ดให้พร้อม (Connect) ก่อน จึงกรอกรหัสได้ */
+  const gateOn = connected && !busy && gatePhase === "idle";
+  $("codeInput").disabled = !gateOn; $("btnRedeem").disabled = !gateOn;
+  if(gatePhase === "idle") gateMsg(connected
+    ? "บอร์ดพร้อมแล้ว — กรอกรหัสแล้วกด ตรวจสอบ ระบบจะเริ่มติดตั้งอัตโนมัติ (มีเวลา 1 นาที)"
+    : "⚠️ ต่อบอร์ดให้พร้อมก่อน: เสียบสาย USB แล้วกด Connect ด้านบน จากนั้นจึงกรอกรหัสได้", connected ? "" : "err");
 }
 
 async function runBusy(fn){
@@ -279,12 +289,12 @@ async function loadCodes(){
 function fmtCode(v){ const c=normCode(v).slice(0,12); return c.match(/.{1,4}/g)?.join("-")||""; }
 $("codeInput").addEventListener("input", e => { e.target.value = fmtCode(e.target.value); });
 $("codeInput").addEventListener("keydown", e => { if(e.key==="Enter") $("btnRedeem").click(); });
-const gateMsg = (t, cls="") => { $("gateMsg").textContent = t; $("gateMsg").className = "status " + cls; };
+function gateMsg(t, cls=""){ $("gateMsg").textContent = t; $("gateMsg").className = "status " + cls; }
 
 $("btnRedeem").onclick = async () => {
   const code = $("codeInput").value.trim();
   if(normCode(code).length < 12){ gateMsg("กรุณากรอกรหัสให้ครบ 12 ตัว", "err"); return; }
-  $("btnRedeem").disabled = true; gateMsg("กำลังตรวจสอบรหัส…");
+  gatePhase = "checking"; updateUI(); gateMsg("กำลังตรวจสอบรหัส…");
   try{
     const [h, list] = await Promise.all([hashCode(code), loadCodes()]);
     const hit = list.find(x => x.h === h);
@@ -296,16 +306,68 @@ $("btnRedeem").onclick = async () => {
     if(!m.variants.length) throw new Error("ไม่มีไฟล์สำหรับชิปของรหัสนี้");
     manifest = m;
     $("gate").style.display = "none";
-    gateMsg("✅ รหัสถูกต้อง — เลือกชิปแล้วกดติดตั้งได้เลย", "ok");
     $("fwInfo").textContent = `${m.product||"DashTron"}` + (m.version ? ` · v${m.version}` : "");
     selected = null; renderVariants();
-    if(m.variants.length === 1) $("variants").children[0]?.click();
-    log("ยืนยันรหัสสำเร็จ");
+    log("ยืนยันรหัสสำเร็จ — เริ่มนับเวลา " + COUNTDOWN_SEC + " วินาที");
+    gatePhase = "countdown"; downloadsDone = false; autoStart = true; startCountdown();
+    if(m.variants.length === 1){ gateMsg("✅ รหัสถูกต้อง — กำลังเริ่มติดตั้งอัตโนมัติ…", "ok"); $("variants").children[0]?.click(); }
+    else gateMsg("✅ รหัสถูกต้อง — กดเลือกชิปของจอ ระบบจะเริ่มติดตั้งทันที", "ok");
   }catch(e){
+    gatePhase = "idle"; updateUI();
     gateMsg("❌ " + e.message, "err");
-    $("btnRedeem").disabled = false;
   }
 };
+function fmtT(sec){ return Math.floor(sec/60) + ":" + String(sec%60).padStart(2,"0"); }
+function startCountdown(){
+  deadline = Date.now() + COUNTDOWN_SEC*1000;
+  const el = $("countdown"); el.style.display = "block"; el.className = "status";
+  clearInterval(tick);
+  tick = setInterval(() => {
+    if(downloadsDone) return;
+    const left = Math.max(0, Math.ceil((deadline - Date.now())/1000));
+    el.textContent = "⏱ เหลือเวลา " + fmtT(left);
+    el.style.color = left <= 10 ? "#ef4444" : "";
+    if(!connected){ abortCtl?.abort(); expire("บอร์ดหลุดการเชื่อมต่อ — กรุณาต่อบอร์ดแล้วกรอกรหัสใหม่"); }
+    else if(left <= 0){ abortCtl?.abort(); expire("หมดเวลา 1 นาที — กรุณากรอกรหัสใหม่"); }
+  }, 250);
+}
+function stopCountdown(msg){ clearInterval(tick); tick = null; $("countdown").textContent = msg; $("countdown").style.color = ""; }
+function resetGate(){  // กลับไปหน้ากรอกรหัส (ยังไม่ได้ติดตั้ง)
+  clearInterval(tick); tick = null; autoStart = false; downloadsDone = false; selected = null; manifest = null;
+  $("variants").innerHTML = ""; $("countdown").style.display = "none"; $("gate").style.display = ""; $("codeInput").value = "";
+  gatePhase = "idle"; updateUI();
+}
+function expire(msg){
+  if(gatePhase !== "countdown") return;
+  clearInterval(tick); tick = null;
+  if(!busy){ resetGate(); gateMsg("⌛ " + msg, "err"); }   // ถ้ากำลังโหลดอยู่ ให้ startAuto จัดการต่อ
+  else { gateMsg("⌛ " + msg, "err"); }
+}
+async function startAuto(){
+  if(!autoStart || !selected || busy) return;
+  autoStart = false;
+  const ac = abortCtl = new AbortController(); flashOk = false;
+  await runBusy(async () => {
+    const fileArray = [];
+    try{
+      for(const f of filesOf(selected)){
+        const u8 = await fetchFile(f, ac.signal);
+        fileArray.push({ data: u8ToBinStr(u8), address: f.address });
+      }
+    }catch(e){
+      if(ac.signal.aborted) throw new Error("หมดเวลา — ดาวน์โหลดไม่ทันใน 1 นาที กรุณากรอกรหัสใหม่");
+      throw e;
+    }
+    downloadsDone = true;
+    stopCountdown("✅ ดาวน์โหลดครบแล้ว — กำลังเขียนลงบอร์ด (ห้ามถอดสาย USB)");
+    await doFlash(fileArray);
+    flashOk = true;
+    gatePhase = "done";
+    $("countdown").textContent = "✅ เขียนลงบอร์ดสำเร็จ";
+    await completeCode();
+  });
+  if(!flashOk){ const m = $("status").textContent; resetGate(); gateMsg(m || "ติดตั้งไม่สำเร็จ — กรุณากรอกรหัสใหม่", "err"); }
+}
 async function completeCode(){
   gateMsg("✅ ติดตั้งเสร็จแล้ว — หากต้องการติดตั้งซ้ำกรุณาติดต่อผู้ขาย", "ok");
 }
@@ -322,7 +384,7 @@ function renderVariants(){
     const kb = sz ? (sz/1024).toFixed(0) + " KB" : "";
     const date = v.ts ? new Date(v.ts).toLocaleString("th-TH") : "";
     d.innerHTML = `<input type="radio" name="v" value="${i}"><b>${v.label}</b><small>${[kb, date].filter(Boolean).join(" · ")}</small>`;
-    d.onclick = () => { selected = v; [...wrap.children].forEach(c=>c.classList.remove("sel")); d.classList.add("sel"); updateUI(); log("เลือกชิป " + v.chip); };
+    d.onclick = () => { selected = v; [...wrap.children].forEach(c=>c.classList.remove("sel")); d.classList.add("sel"); updateUI(); log("เลือกชิป " + v.chip); if(autoStart) startAuto(); };
     wrap.appendChild(d);
   });
 }
@@ -462,9 +524,9 @@ function filesOf(v){
   }
   return [{ name:v.name, url:v.url, size:v.size, sha256:v.sha256, address:parseAddr($("addr").value) }];
 }
-async function fetchFile(f){
+async function fetchFile(f, signal){
   setStatus("กำลังดาวน์โหลดไฟล์ " + f.name + " …");
-  const r = await fetch(f.url, {cache:"no-store"});
+  const r = await fetch(f.url, {cache:"no-store", signal});
   if(!r.ok) throw new Error(`ดาวน์โหลด ${f.name} ไม่สำเร็จ HTTP ${r.status}`);
   const u8 = new Uint8Array(await r.arrayBuffer());
   log(`ไฟล์ ${f.name} ขนาด ${u8.length} bytes → ${hexAddr(f.address)}`);

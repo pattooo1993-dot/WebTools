@@ -252,42 +252,62 @@ $("tabAutoBtn").onclick = () => showTab(true);
 $("tabManualBtn").onclick = () => showTab(false);
 $("btnClear").onclick = () => terminal.clean();
 
-/* ================= Redeem code (one-time) ================= */
-let sessionToken = null;
-function fmtCode(v){ const c=v.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,12); return c.match(/.{1,4}/g)?.join("-")||""; }
+/* ================= ตรวจรหัสกับรายการที่ webdashtron เก็บไว้ ================= */
+/* แก้ 2 ค่านี้ให้ตรงกับ repo ของ webdashtron */
+const CODES_SRC = { owner:"jmcumicrocontrollerunit-eng", repo:"JmcuMicrocontroller", branch:"main", path:"codes/codes.json" };
+const INSTALLER_MANIFEST_URL = "https://raw.githubusercontent.com/jmcumicrocontrollerunit-eng/JmcuMicrocontroller/main/firmware-installer/manifest.json";
+/* ต้องตรงกับ webdashtron ทุกตัวอักษร */
+const HASH_SALT = "dashtron-codes-v1", HASH_ITER = 100000;
+
+const normCode = v => String(v||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+async function hashCode(code){
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(normCode(code)), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({name:"PBKDF2", hash:"SHA-256", salt:new TextEncoder().encode(HASH_SALT), iterations:HASH_ITER}, key, 256);
+  return [...new Uint8Array(bits)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function loadCodes(){
+  const c = CODES_SRC;
+  const r = await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/${c.path}?ref=${encodeURIComponent(c.branch)}&t=${Date.now()}`,
+    {cache:"no-store", headers:{Accept:"application/vnd.github.raw+json"}});
+  if(r.status === 404) return [];
+  if(r.status === 403 || r.status === 429) throw new Error("ระบบตรวจรหัสไม่ว่างชั่วคราว กรุณารอสักครู่แล้วลองใหม่");
+  if(!r.ok) throw new Error("ตรวจรหัสไม่ได้ (HTTP " + r.status + ")");
+  const j = JSON.parse(await r.text());
+  return Array.isArray(j.codes) ? j.codes : [];
+}
+
+function fmtCode(v){ const c=normCode(v).slice(0,12); return c.match(/.{1,4}/g)?.join("-")||""; }
 $("codeInput").addEventListener("input", e => { e.target.value = fmtCode(e.target.value); });
 $("codeInput").addEventListener("keydown", e => { if(e.key==="Enter") $("btnRedeem").click(); });
+const gateMsg = (t, cls="") => { $("gateMsg").textContent = t; $("gateMsg").className = "status " + cls; };
+
 $("btnRedeem").onclick = async () => {
   const code = $("codeInput").value.trim();
-  if(code.replace(/-/g,"").length < 12){ $("gateMsg").textContent = "กรุณากรอกรหัสให้ครบ 12 ตัว"; $("gateMsg").className="status err"; return; }
-  $("btnRedeem").disabled = true;
+  if(normCode(code).length < 12){ gateMsg("กรุณากรอกรหัสให้ครบ 12 ตัว", "err"); return; }
+  $("btnRedeem").disabled = true; gateMsg("กำลังตรวจสอบรหัส…");
   try{
-    const r = await fetch("/api/redeem", {method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({code})});
-    const j = await r.json();
-    if(!r.ok) throw new Error(j.error || ("HTTP " + r.status));
-    manifest = j;
-    sessionToken = new URL(j.variants[0].files[0].url, location.href).pathname.split("/")[3];
+    const [h, list] = await Promise.all([hashCode(code), loadCodes()]);
+    const hit = list.find(x => x.h === h);
+    if(!hit) throw new Error("ไม่พบรหัสนี้ หรือรหัสถูกใช้งานไปแล้ว");
+    const r = await fetch(INSTALLER_MANIFEST_URL + "?t=" + Date.now(), {cache:"no-store"});
+    if(!r.ok) throw new Error("โหลดรายการไฟล์ Installer ไม่ได้ (HTTP " + r.status + ")");
+    const m = await r.json();
+    m.variants = (m.variants||[]).filter(v => !hit.chip || String(v.chip).toLowerCase() === String(hit.chip).toLowerCase());
+    if(!m.variants.length) throw new Error("ไม่มีไฟล์สำหรับชิปของรหัสนี้");
+    manifest = m;
     $("gate").style.display = "none";
-    const mins = Math.max(1, Math.round((j.expiresAt - Date.now())/60000));
-    $("gateMsg").textContent = `✅ รหัสถูกต้อง — เลือกชิปแล้วกดติดตั้งภายใน ${mins} นาที (รหัสนี้ใช้ได้ครั้งเดียว)`;
-    $("gateMsg").className = "status ok";
-    $("fwInfo").textContent = `${j.product}` + (j.version ? ` · v${j.version}` : "");
-    selected = null;
-    renderVariants();
-    if(j.variants.length === 1) wrapSelect(0);
+    gateMsg("✅ รหัสถูกต้อง — เลือกชิปแล้วกดติดตั้งได้เลย", "ok");
+    $("fwInfo").textContent = `${m.product||"DashTron"}` + (m.version ? ` · v${m.version}` : "");
+    selected = null; renderVariants();
+    if(m.variants.length === 1) $("variants").children[0]?.click();
     log("ยืนยันรหัสสำเร็จ");
   }catch(e){
-    $("gateMsg").textContent = "❌ " + e.message; $("gateMsg").className = "status err";
+    gateMsg("❌ " + e.message, "err");
     $("btnRedeem").disabled = false;
   }
 };
-function wrapSelect(i){ const el = $("variants").children[i]; if(el) el.click(); }
 async function completeCode(){
-  if(!sessionToken) return;
-  try{ await fetch("/api/complete", {method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({token: sessionToken})}); }catch{}
-  sessionToken = null; selected = null;
-  $("variants").innerHTML = ""; $("gateMsg").textContent = "รหัสนี้ถูกใช้งานแล้ว — หากต้องการติดตั้งอีกครั้งกรุณาติดต่อผู้ขาย"; $("gateMsg").className = "status";
-  updateUI();
+  gateMsg("✅ ติดตั้งเสร็จแล้ว — หากต้องการติดตั้งซ้ำกรุณาติดต่อผู้ขาย", "ok");
 }
 function variantSize(v){
   if(Array.isArray(v.files)) return v.files.reduce((a,f)=>a+(f.size||0),0);

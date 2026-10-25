@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JMCU – DashTron Web Flasher</title>
+<style>
+  :root{
+    --bg:#000; --card:rgba(12,18,26,.84); --line:#26323f; --text:#e8eef5;
+    --muted:#93a1b1; --accent:#18c6ff; --ok:#3ddc84; --err:#ff5d5d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:"Sarabun","Noto Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
+    min-height:100vh;display:flex;flex-direction:column;align-items:center}
+  header{width:100%;padding:20px 16px 8px;text-align:center}
+  header img{width:min(520px,92%);height:clamp(150px,30vw,250px);object-fit:cover;object-position:center 48%;display:block;margin:0 auto}
+  header h1.fallback{margin:0;font-size:2rem;letter-spacing:.1em}
+  .sub{color:var(--muted);margin:6px 0 0;font-size:.95rem}
+
+  .stage{
+    width:min(920px,calc(100% - 24px));margin:14px 0 28px;border-radius:18px;
+    border:1px solid var(--line);overflow:hidden;position:relative;
+    background:#000 url("assets/dashtron.jpg") center top/cover no-repeat;
+  }
+  .stage::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.15),rgba(0,0,0,.6))}
+  .panel{position:relative;padding:22px;display:grid;gap:16px}
+  .box{background:var(--card);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .box h2{margin:0 0 10px;font-size:1rem;color:var(--accent);font-weight:600}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{color:var(--muted);font-size:.9rem}
+  select,input[type=text]{background:#0e151d;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit}
+  input[type=file]{color:var(--muted);font:inherit;font-size:.88rem;max-width:100%}
+  button{background:var(--accent);color:#04202b;border:0;border-radius:10px;padding:11px 18px;font:inherit;font-weight:700;cursor:pointer}
+  button.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+  button.danger{background:#3a1414;color:#ffb3b3;border:1px solid #7a2a2a}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .chips{display:flex;gap:10px;flex-wrap:wrap}
+  .chip{flex:1 1 180px;border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer;background:#0e151d}
+  .chip input{display:none}
+  .chip.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .chip b{display:block;font-size:1.05rem}
+  .chip small{color:var(--muted)}
+  .status{font-size:.92rem;color:var(--muted)}
+  .status.ok{color:var(--ok)} .status.err{color:var(--err)}
+  .badge{display:none;gap:8px;align-items:center;background:#0e151d;border:1px solid var(--ok);color:var(--ok);border-radius:10px;padding:8px 12px;font-size:.92rem}
+  .badge.show{display:inline-flex}
+  .info{display:none;margin-top:10px;background:#0a1118;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.88rem;line-height:1.7}
+  .info.show{display:block}
+  .info b{color:var(--accent);font-weight:600}
+  .bar{height:12px;border-radius:99px;background:#0e151d;border:1px solid var(--line);overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#18c6ff,#3ddc84);transition:width .15s}
+  pre#log{margin:0;max-height:260px;overflow:auto;background:#05080c;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:.8rem;color:#b8c7d6;white-space:pre-wrap}
+  .tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .tab{background:transparent;color:var(--muted);border:1px solid var(--line);padding:9px 16px}
+  .tab.on{background:var(--accent);color:#04202b;border-color:var(--accent)}
+  .pane{display:none} .pane.on{display:block}
+  .frow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;padding:8px;border:1px solid var(--line);border-radius:10px;background:#0a1118}
+  .frow input[type=text]{width:120px}
+  .frow .x{padding:8px 12px;background:transparent;color:var(--err);border:1px solid var(--line)}
+  .hint{font-size:.82rem;color:var(--muted);margin:6px 0 0;line-height:1.6}
+  .warn{background:#3a2a0b;border:1px solid #7a5a10;color:#ffd98a;border-radius:10px;padding:10px 12px;display:none}
+  footer{color:var(--muted);font-size:.8rem;padding:0 12px 24px;text-align:center}
+  code{color:#b8c7d6}
+  #dlCount{position:fixed;right:10px;bottom:8px;font-size:.7rem;color:var(--muted);opacity:.8;pointer-events:none;z-index:5}
+
+  /* ===== Software ตัวเต็ม + LINE ===== */
+  .cta{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:14px 0 0}
+  .cta button,.cta a{font:inherit;font-weight:600;border-radius:10px;padding:10px 18px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;line-height:1.2}
+  .btn-full{background:var(--accent);color:#04202b;border:0}
+  .btn-line{background:#06C755;color:#fff;border:0}
+  .btn-line:hover{background:#05b34c}
+  .line-fab{position:fixed;left:12px;bottom:12px;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.45);border-radius:999px!important;padding:12px 20px!important}
+  #presModal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.82);display:none;flex-direction:column}
+  #presModal.open{display:flex}
+  #presModal .bar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#0b1118;border-bottom:1px solid var(--line)}
+  #presModal .bar .ttl{flex:1;font-weight:600;font-size:.95rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #presModal .bar a,#presModal .bar button{font:inherit;font-size:.9rem;padding:7px 14px;border-radius:8px;cursor:pointer;text-decoration:none;font-weight:600}
+  #presModal .bar .btn-line{display:inline-flex;align-items:center;gap:6px}
+  #presModal iframe{flex:1;width:100%;border:0;background:#000}
+  @media (max-width:520px){#presModal .bar .ttl{display:none}.line-fab{left:8px;bottom:8px}}
+</style>
+</head>
+<body>
+
+<header>
+  <img src="assets/jmcu.jpg" alt="JMCU" onerror="this.replaceWith(Object.assign(document.createElement('h1'),{className:'fallback',textContent:'JMCU'}))">
+  <p class="sub">DashTron Web Flasher · ช่องทางทดลองใช้งาน (CYD 2.8")</p>
+  <div class="cta">
+    <button type="button" class="btn-full" id="btnFull">📊 Software ตัวเต็ม</button>
+    <a class="btn-line" href="full.html" style="background:#f5a623;color:#111">🛒 ซื้อเวอร์ชันเต็ม</a>
+    <a class="btn-line" href="https://lin.ee/qEiKChvX" target="_blank" rel="noopener">💬 LINE OA</a>
+  </div>
+</header>
+
+<main class="stage">
+  <div class="panel">
+
+    <div class="warn" id="noSerial">เบราว์เซอร์นี้ไม่รองรับ Web Serial — กรุณาใช้ Chrome / Edge บนคอมพิวเตอร์ และเปิดหน้านี้ผ่าน https</div>
+
+    <!-- ===== เชื่อมต่อ (แบบ ESP Tool) ===== -->
+    <section class="box">
+      <h2>เชื่อมต่อบอร์ด</h2>
+      <div class="row">
+        <button id="btnConnect">🔌 Connect</button>
+        <button id="btnDisconnect" class="ghost" disabled>Disconnect</button>
+        <label>Baudrate
+          <select id="baud">
+            <option value="115200">115200</option>
+            <option value="230400">230400</option>
+            <option value="460800">460800</option>
+            <option value="921600" selected>921600</option>
+          </select>
+        </label>
+        <span class="badge" id="badge">✔ <span id="badgeText"></span></span>
+      </div>
+      <div class="info" id="chipInfo"></div>
+      <p class="hint">เบราว์เซอร์ไม่เปิดเผยชื่อ COM3/COM4 ให้เว็บ จึงแสดงชนิดชิป USB และข้อมูลชิปแทน · ถ้าไม่เจอพอร์ต: ลง driver CP210x / CH340 แล้วเสียบสาย USB ใหม่ (บางบอร์ดต้องกดปุ่ม BOOT ค้างตอนกด Connect)</p>
+    </section>
+
+    <!-- ===== ติดตั้ง ===== -->
+    <section class="box">
+      <div class="tabs">
+        <button class="tab on" id="tabAutoBtn">DashTron (ติดตั้งอัตโนมัติ)</button>
+        <button class="tab" id="tabManualBtn">ESP Tool (เลือกไฟล์เอง)</button>
+      </div>
+
+      <!-- โหมดอัตโนมัติ: โหลดจาก manifest -->
+      <div class="pane on" id="paneAuto">
+        <div class="chips" id="variants"><span class="status">กำลังโหลด manifest…</span></div>
+        <p class="status" id="fwInfo"></p>
+        <div class="row" style="margin-top:8px">
+          <button id="btnFlash" disabled>⚡ ติดตั้งเฟิร์มแวร์</button>
+        </div>
+        <details style="margin-top:10px">
+          <summary class="status" style="cursor:pointer">ตั้งค่าขั้นสูง</summary>
+          <div class="row" style="margin-top:8px">
+            <label>Flash address
+              <input type="text" id="addr" value="0x10000" size="10">
+            </label>
+           
+          </div>
+        </details>
+      </div>
+
+      <!-- โหมดเลือกไฟล์เอง เหมือน ESP Tool -->
+      <div class="pane" id="paneManual">
+        <div id="fileRows"></div>
+        <div class="row" style="margin-top:6px">
+          <button class="ghost" id="btnAddRow">＋ เพิ่มไฟล์</button>
+          <button id="btnProgram" disabled>⚡ Program</button>
+          <button class="ghost" id="btnReset" disabled>Reset บอร์ด</button>
+        </div>
+       
+      </div>
+
+      <div class="bar" style="margin:14px 0 6px"><i id="prog"></i></div>
+      <div class="status" id="status">พร้อม</div>
+    </section>
+
+    <section class="box">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+        <h2 style="margin:0">Console</h2>
+        <button class="ghost" id="btnClear" style="padding:6px 12px">ล้าง</button>
+      </div>
+      <pre id="log"></pre>
+    </section>
+  </div>
+</main>
+
+<footer>JMCU Microcontroller Unit · เฟิร์มแวร์ทดลอง อาจไม่เสถียร</footer>
+
+<div id="dlCount">Download: <span id="dlNum">0</span></div>
+
+<a class="btn-line line-fab" href="https://lin.ee/qEiKChvX" target="_blank" rel="noopener" aria-label="แอด LINE OA">💬 LINE</a>
+
+<div id="presModal" role="dialog" aria-modal="true" aria-label="DashTron Gauge นำเสนอลูกค้า">
+  <div class="bar">
+    <span class="ttl">DashTron Gauge · Software ตัวเต็ม</span>
+    <a class="btn-line" href="https://lin.ee/qEiKChvX" target="_blank" rel="noopener">💬 LINE OA</a>
+    <button type="button" class="ghost" id="presClose">✕ ปิด</button>
+  </div>
+  <iframe id="presFrame" title="DashTron Gauge นำเสนอลูกค้า" allowfullscreen></iframe>
+</div>
+
+<script>
+(function(){
+  var m=document.getElementById('presModal'),f=document.getElementById('presFrame');
+  function open(){ if(!f.getAttribute('src')) f.setAttribute('src','presentation.html'); m.classList.add('open'); document.body.style.overflow='hidden'; }
+  function close(){ m.classList.remove('open'); document.body.style.overflow=''; }
+  document.getElementById('btnFull').addEventListener('click',open);
+  document.getElementById('presClose').addEventListener('click',close);
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') close(); });
+})();
+</script>
+
+<script type="module">
+import { ESPLoader, Transport } from "https://cdn.jsdelivr.net/npm/esptool-js@0.5.4/bundle.js";
+
+const MANIFEST_URL = "https://raw.githubusercontent.com/jmcumicrocontrollerunit-eng/JmcuMicrocontroller/main/firmware-test/manifest.json";
+
+const $ = id => document.getElementById(id);
+const logEl = $("log");
+const log = m => { logEl.textContent += m + "\n"; logEl.scrollTop = logEl.scrollHeight; };
+const setStatus = (m, cls="") => { const s=$("status"); s.textContent=m; s.className="status "+cls; };
+const terminal = {
+  clean(){ logEl.textContent = ""; },
+  writeLine: log,
+  write: t => { logEl.textContent += t; logEl.scrollTop = logEl.scrollHeight; }
+};
+
+let manifest = null, selected = null;
+let port = null, transport = null, loader = null;
+let connected = false, busy = false, dirty = false;
+
+if (!("serial" in navigator)) $("noSerial").style.display = "block";
+
+/* ================= UI state ================= */
+function updateUI(){
+  $("btnConnect").disabled = busy || connected;
+  $("btnDisconnect").disabled = busy || !connected;
+  $("btnProgram").disabled = busy || !connected;
+  $("btnReset").disabled = busy || !connected;
+  $("btnFlash").disabled = busy || !connected || !selected;
+  $("btnAddRow").disabled = busy;
+}
+
+async function runBusy(fn){
+  if(busy) return;
+  busy = true; updateUI(); $("prog").style.width = "0%";
+  try{ await fn(); }
+  catch(e){
+    console.error(e);
+    dirty = true;                       // ครั้งถัดไปให้เชื่อมต่อชิปใหม่
+    setStatus("❌ " + (e.message || e), "err");
+    log("ผิดพลาด: " + (e.message || e));
+  }
+  finally{ busy = false; updateUI(); }
+}
+
+/* ================= Tabs ================= */
+function showTab(auto){
+  $("paneAuto").classList.toggle("on", auto);
+  $("paneManual").classList.toggle("on", !auto);
+  $("tabAutoBtn").classList.toggle("on", auto);
+  $("tabManualBtn").classList.toggle("on", !auto);
+}
+$("tabAutoBtn").onclick = () => showTab(true);
+$("tabManualBtn").onclick = () => showTab(false);
+$("btnClear").onclick = () => terminal.clean();
+
+/* ================= Manifest ================= */
+async function loadManifest(){
+  try{
+    const r = await fetch(MANIFEST_URL + "?t=" + Date.now(), {cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    manifest = await r.json();
+    renderVariants();
+    $("fwInfo").textContent = `${manifest.product} · ช่อง ${manifest.channel}` + (manifest.version ? ` · v${manifest.version}` : "");
+    log("โหลด manifest สำเร็จ");
+  }catch(e){
+    $("variants").innerHTML = `<span class="status err">โหลด manifest ไม่ได้: ${e.message}</span>`;
+    log("โหลด manifest ไม่ได้: " + e);
+  }
+}
+function variantSize(v){
+  if(Array.isArray(v.files)) return v.files.reduce((a,f)=>a+(f.size||0),0);
+  return v.size || 0;
+}
+function renderVariants(){
+  const wrap = $("variants"); wrap.innerHTML = "";
+  manifest.variants.forEach((v,i)=>{
+    const d = document.createElement("label");
+    d.className = "chip";
+    const sz = variantSize(v);
+    const kb = sz ? (sz/1024).toFixed(0) + " KB" : "";
+    const date = v.ts ? new Date(v.ts).toLocaleString("th-TH") : "";
+    d.innerHTML = `<input type="radio" name="v" value="${i}"><b>${v.label}</b><small>${[kb, date].filter(Boolean).join(" · ")}</small>`;
+    d.onclick = () => { selected = v; [...wrap.children].forEach(c=>c.classList.remove("sel")); d.classList.add("sel"); updateUI(); log("เลือกชิป " + v.chip); };
+    wrap.appendChild(d);
+  });
+}
+
+/* ================= Helpers ================= */
+const USB_NAMES = {
+  "10C4:EA60":"CP210x (Silicon Labs)",
+  "1A86:7523":"CH340",
+  "1A86:55D4":"CH9102",
+  "303A:1001":"ESP32 native USB (S3/C3)",
+  "0403:6001":"FTDI FT232"
+};
+function portLabel(p){
+  const i = p.getInfo ? p.getInfo() : {};
+  if(!i.usbVendorId) return "Serial port (ไม่ทราบรุ่น)";
+  const hex = n => n.toString(16).toUpperCase().padStart(4,"0");
+  const key = hex(i.usbVendorId) + ":" + hex(i.usbProductId || 0);
+  return (USB_NAMES[key] || "USB อุปกรณ์ไม่รู้จัก") + ` [${key}]`;
+}
+const toHex = buf => [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+function u8ToBinStr(u8){
+  let s = ""; const CH = 0x8000;
+  for(let i=0;i<u8.length;i+=CH) s += String.fromCharCode.apply(null, u8.subarray(i,i+CH));
+  return s;
+}
+function parseAddr(v){
+  const t = String(v).trim();
+  if(!/^(0x)?[0-9a-f]+$/i.test(t)) throw new Error("Flash address ไม่ถูกต้อง: " + v);
+  return parseInt(t, 16);
+}
+const hexAddr = n => "0x" + n.toString(16);
+
+/* ================= Connection ================= */
+async function openLoader(){
+  if(transport){ try{ await transport.disconnect(); }catch(_){} transport = null; loader = null; }
+  transport = new Transport(port, false);
+  loader = new ESPLoader({
+    transport,
+    baudrate: parseInt($("baud").value, 10),
+    romBaudrate: 115200,
+    terminal
+  });
+  try{
+    const desc = await loader.main();     // รีเซ็ตเข้า bootloader + ตรวจชิป
+    dirty = false;
+    return desc;
+  }catch(e){
+    try{ await transport.disconnect(); }catch(_){}
+    transport = null; loader = null;
+    throw e;
+  }
+}
+async function ensureReady(){
+  if(!loader || dirty){
+    setStatus("กำลังเชื่อมต่อชิป…");
+    log("เชื่อมต่อชิปใหม่…");
+    await openLoader();
+  }
+}
+
+$("baud").onchange = () => { if(connected) dirty = true; };   // มีผลตอนเชื่อมต่อรอบถัดไป
+
+$("btnConnect").onclick = () => runBusy(async () => {
+  try{
+    port = await navigator.serial.requestPort();
+  }catch(e){
+    log("ยกเลิกการเลือกพอร์ต"); setStatus("พร้อม"); return;
+  }
+  const label = portLabel(port);
+  log("เลือกพอร์ต " + label);
+  setStatus("กำลังเชื่อมต่อชิป…");
+  const desc = await openLoader();
+  connected = true;
+
+  let mac = "";
+  try{ mac = await loader.chip.readMac(loader); }catch(_){}
+
+  $("badgeText").textContent = label;
+  $("badge").classList.add("show");
+  $("chipInfo").innerHTML =
+    `<b>ชิป:</b> ${desc}` +
+    (mac ? `<br><b>MAC:</b> ${mac}` : "") +
+    `<br><b>พอร์ต:</b> ${label}`;
+  $("chipInfo").classList.add("show");
+  setStatus("✅ เชื่อมต่อแล้ว: " + (loader.chip && loader.chip.CHIP_NAME || desc), "ok");
+  log("ตรวจพบชิป: " + desc);
+});
+
+$("btnDisconnect").onclick = () => runBusy(async () => {
+  try{ if(transport) await transport.disconnect(); }catch(_){}
+  transport = null; loader = null; port = null; connected = false; dirty = false;
+  $("badge").classList.remove("show");
+  $("chipInfo").classList.remove("show");
+  setStatus("ตัดการเชื่อมต่อแล้ว");
+  log("ตัดการเชื่อมต่อ");
+});
+
+/* ================= ตัวนับการติดตั้ง (เก็บในเบราว์เซอร์นี้) ================= */
+const COUNT_KEY = "jmcu_flash_count_v1";
+function getCount(){
+  try{ const n = parseInt(localStorage.getItem(COUNT_KEY), 10); return Number.isFinite(n) && n > 0 ? n : 0; }catch(_){ return 0; }
+}
+function renderCount(){ $("dlNum").textContent = getCount(); }
+function recordFlash(){
+  try{ localStorage.setItem(COUNT_KEY, String(getCount() + 1)); }catch(_){}
+  renderCount();
+}
+
+/* ================= Flash ================= */
+async function doFlash(fileArray){
+  await ensureReady();
+  setStatus("กำลังเขียน flash…");
+  const n = fileArray.length;
+  await loader.writeFlash({
+    fileArray,
+    flashSize: "keep", flashMode: "keep", flashFreq: "keep",
+    eraseAll: false,                    // เวอร์ชันทดลอง: ห้ามลบ flash ทั้งชิป (จะรีเซ็ตเวลาทดลอง)
+    compress: true,
+    reportProgress: (idx, written, total) => {
+      const p = Math.round(((idx + written/total) / n) * 100);
+      $("prog").style.width = p + "%";
+      setStatus(`กำลังเขียน flash… ${p}%`);
+    }
+  });
+  await loader.after();                 // hard reset
+  dirty = true;                         // บอร์ดรันแอปแล้ว รอบหน้าต้องเข้า bootloader ใหม่
+  recordFlash();
+  $("prog").style.width = "100%";
+  setStatus("✅ เขียนเสร็จแล้ว — ถ้าบอร์ดไม่รีสตาร์ท ให้กด RESET หรือถอด/เสียบสาย USB ใหม่", "ok");
+  log("เสร็จสิ้น (ถ้าบอร์ดไม่บูต ให้เปิด Serial Monitor ที่ 115200 เพื่อดู error)");
+}
+
+/* ---- โหมดอัตโนมัติ (manifest) ---- */
+function filesOf(v){
+  if(Array.isArray(v.files) && v.files.length){
+    return v.files.map(f => ({ name:f.name||f.url, url:f.url, size:f.size, sha256:f.sha256, address:parseAddr(f.address) }));
+  }
+  return [{ name:v.name, url:v.url, size:v.size, sha256:v.sha256, address:parseAddr($("addr").value) }];
+}
+async function fetchFile(f){
+  setStatus("กำลังดาวน์โหลดไฟล์ " + f.name + " …");
+  const r = await fetch(f.url, {cache:"no-store"});
+  if(!r.ok) throw new Error(`ดาวน์โหลด ${f.name} ไม่สำเร็จ HTTP ${r.status}`);
+  const u8 = new Uint8Array(await r.arrayBuffer());
+  log(`ไฟล์ ${f.name} ขนาด ${u8.length} bytes → ${hexAddr(f.address)}`);
+  if(f.sha256){
+    const h = toHex(await crypto.subtle.digest("SHA-256", u8));
+    if(h !== f.sha256.toLowerCase()) throw new Error(`SHA-256 ของ ${f.name} ไม่ตรงกับ manifest — ยกเลิกการติดตั้ง`);
+    log("ตรวจ SHA-256 ผ่าน: " + f.name);
+  }
+  if(f.size && f.size !== u8.length) log("คำเตือน: ขนาดไฟล์ " + f.name + " ไม่ตรงกับ manifest");
+  return u8;
+}
+$("btnFlash").onclick = () => runBusy(async () => {
+  if(!selected) return;
+  const fileArray = [];
+  for(const f of filesOf(selected)){
+    const u8 = await fetchFile(f);
+    fileArray.push({ data: u8ToBinStr(u8), address: f.address });
+  }
+  await doFlash(fileArray);
+});
+
+/* ---- โหมดเลือกไฟล์เอง (ESP Tool) ---- */
+function addRow(addr = "0x0"){
+  const row = document.createElement("div");
+  row.className = "frow";
+  row.innerHTML = `<label>Address <input type="text" class="a" value="${addr}"></label>
+                   <input type="file" class="f" accept=".bin">
+                   <button class="x" title="ลบแถว">✕</button>`;
+  row.querySelector(".x").onclick = () => { row.remove(); if(!$("fileRows").children.length) addRow(); };
+  $("fileRows").appendChild(row);
+}
+$("btnAddRow").onclick = () => addRow("0x10000");
+addRow("0x0");
+
+const readFile = file => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onload = () => res(r.result);
+  r.onerror = () => rej(new Error("อ่านไฟล์ไม่สำเร็จ: " + file.name));
+  r.readAsBinaryString(file);
+});
+
+$("btnProgram").onclick = () => runBusy(async () => {
+  const fileArray = [];
+  for(const row of $("fileRows").children){
+    const file = row.querySelector(".f").files[0];
+    if(!file) continue;
+    const address = parseAddr(row.querySelector(".a").value);
+    fileArray.push({ data: await readFile(file), address });
+    log(`ไฟล์ ${file.name} ขนาด ${file.size} bytes → ${hexAddr(address)}`);
+  }
+  if(!fileArray.length) throw new Error("ยังไม่ได้เลือกไฟล์ .bin");
+  await doFlash(fileArray);
+});
+
+$("btnReset").onclick = () => runBusy(async () => {
+  await ensureReady();
+  await loader.after();
+  dirty = true;
+  setStatus("รีเซ็ตบอร์ดแล้ว", "ok");
+  log("รีเซ็ตบอร์ด");
+});
+
+updateUI();
+renderCount();
+loadManifest();
+</script>
+</body>
+</html>

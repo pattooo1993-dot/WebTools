@@ -1,0 +1,76 @@
+{
+  "product": "DashTron",
+  "version": null,
+  "variants": [
+    {
+      "chip": "ST7789",
+      "label": "ST7789",
+      "ts": 1792912601912,
+      "files": [
+        {
+          "name": "DashTron_Installer.ino.bootloader.bin",
+          "path": "ST7789/bl/DashTron_Installer.ino.bootloader.bin",
+          "address": "0x1000",
+          "size": 24992,
+          "sha256": "47bbbfca119fe87190f63a67af9d85adff6433bcf3812ec92a9b9c9416a53ad1"
+        },
+        {
+          "name": "DashTron_Installer.ino.partitions.bin",
+          "path": "ST7789/part/DashTron_Installer.ino.partitions.bin",
+          "address": "0x8000",
+          "size": 3072,
+          "sha256": "14a4803864309c94d6a172fb93cb3e33836cb08d1c51a42f98864f9beccbf7a9"
+        },
+        {
+          "name": "boot_app0.bin",
+          "path": "ST7789/boot0/boot_app0.bin",
+          "address": "0xE000",
+          "size": 8192,
+          "sha256": "f94c5d786a7a8fab06ac5d10e33bf37711a6697636dc037559ea19cc410a17f0"
+        },
+        {
+          "name": "DashTron_Installer.ino.bin",
+          "path": "ST7789/main/DashTron_Installer.ino.bin",
+          "address": "0x10000",
+          "size": 1171072,
+          "sha256": "757db32da255aa17b737fcecd01bcc4cae682139d3e98c14cceabb3dd94cd319"
+        }
+      ]
+    },
+    {
+      "chip": "ILI9341",
+      "label": "ILI9341",
+      "ts": 1792912527813,
+      "files": [
+        {
+          "name": "DashTron_Installer.ino.bootloader.bin",
+          "path": "ILI9341/bl/DashTron_Installer.ino.bootloader.bin",
+          "address": "0x1000",
+          "size": 24992,
+          "sha256": "47bbbfca119fe87190f63a67af9d85adff6433bcf3812ec92a9b9c9416a53ad1"
+        },
+        {
+          "name": "DashTron_Installer.ino.partitions.bin",
+          "path": "ILI9341/part/DashTron_Installer.ino.partitions.bin",
+          "address": "0x8000",
+          "size": 3072,
+          "sha256": "14a4803864309c94d6a172fb93cb3e33836cb08d1c51a42f98864f9beccbf7a9"
+        },
+        {
+          "name": "boot_app0.bin",
+          "path": "ILI9341/boot0/boot_app0.bin",
+          "address": "0xE000",
+          "size": 8192,
+          "sha256": "f94c5d786a7a8fab06ac5d10e33bf37711a6697636dc037559ea19cc410a17f0"
+        },
+        {
+          "name": "DashTron_Installer.ino.bin",
+          "path": "ILI9341/main/DashTron_Installer.ino.bin",
+          "address": "0x10000",
+          "size": 1171152,
+          "sha256": "c796d317207ad924c55c90a55ae39009fbffbd279d4416c46c3cc54db908ba0a"
+        }
+      ]
+    }
+  ]
+}

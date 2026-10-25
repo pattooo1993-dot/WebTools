@@ -1,0 +1,13 @@
+{
+  "name": "dashtron-gate",
+  "version": "1.0.0",
+  "private": true,
+  "description": "One-time download code gate for DashTron web flasher (Telegram bot + web)",
+  "type": "commonjs",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "sync-firmware": "node scripts/sync-firmware.js",
+    "test": "node test/test.js"
+  }
+}

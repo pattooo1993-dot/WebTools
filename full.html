@@ -97,6 +97,27 @@
 
     <div class="warn" id="noSerial">เบราว์เซอร์นี้ไม่รองรับ Web Serial — กรุณาใช้ Chrome / Edge บนคอมพิวเตอร์ และเปิดหน้านี้ผ่าน https</div>
 
+    <!-- ===== ราคา ===== -->
+    <section class="box">
+      <h2>ราคา</h2>
+      <div class="chips">
+        <div class="chip" style="cursor:default">
+          <b>Software (ไฟล์ .bin)</b>
+          <span style="font-size:1.8rem;font-weight:800;color:var(--accent)">1,800 บาท</span><br>
+          <small>สำหรับผู้ที่มีบอร์ด CYD อยู่แล้ว</small>
+        </div>
+        <div class="chip" style="cursor:default">
+          <b>ชุดพร้อมใช้งาน</b>
+          <span style="font-size:1.8rem;font-weight:800;color:var(--accent)">2,923 บาท</span><br>
+          <small>บอร์ด + ซอฟต์แวร์ + เคส + OBD2 ครบชุด</small>
+        </div>
+      </div>
+      <p class="hint">สนใจสั่งซื้อ ติดต่อทางไลน์ได้เลย</p>
+      <div class="cta" style="justify-content:flex-start">
+        <a class="btn-line" href="https://lin.ee/qEiKChvX" target="_blank" rel="noopener">💬 ติดต่อทาง LINE OA</a>
+      </div>
+    </section>
+
     <!-- ===== เชื่อมต่อ (แบบ ESP Tool) ===== -->
     <section class="box">
       <h2>เชื่อมต่อบอร์ด</h2>
@@ -179,25 +200,6 @@
 <div id="dlCount">Download: <span id="dlNum">0</span></div>
 
 <a class="btn-line line-fab" href="https://lin.ee/qEiKChvX" target="_blank" rel="noopener" aria-label="แอด LINE OA">💬 LINE</a>
-
-<div id="presModal" role="dialog" aria-modal="true" aria-label="DashTron Gauge นำเสนอลูกค้า">
-  <div class="bar">
-    <span class="ttl">DashTron Gauge · Software ตัวเต็ม</span>
-    <a class="btn-line" href="https://lin.ee/qEiKChvX" target="_blank" rel="noopener">💬 LINE OA</a>
-    <button type="button" class="ghost" id="presClose">✕ ปิด</button>
-  </div>
-  <iframe id="presFrame" title="DashTron Gauge นำเสนอลูกค้า" allowfullscreen></iframe>
-</div>
-
-<script>
-(function(){
-  var m=document.getElementById('presModal'),f=document.getElementById('presFrame');
-  function open(){ if(!f.getAttribute('src')) f.setAttribute('src','presentation.html'); m.classList.add('open'); document.body.style.overflow='hidden'; }
-  function close(){ m.classList.remove('open'); document.body.style.overflow=''; }
-  document.getElementById('presClose').addEventListener('click',close);
-  document.addEventListener('keydown',function(e){ if(e.key==='Escape') close(); });
-})();
-</script>
 
 <script type="module">
 import { ESPLoader, Transport } from "https://cdn.jsdelivr.net/npm/esptool-js@0.5.4/bundle.js";

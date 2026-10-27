@@ -87,7 +87,6 @@
   <img src="assets/jmcu.jpg" alt="JMCU" onerror="this.replaceWith(Object.assign(document.createElement('h1'),{className:'fallback',textContent:'JMCU'}))">
   <p class="sub">DashTron Web Flasher · ช่องทางทดลองใช้งาน (CYD 2.8")</p>
   <div class="cta">
-    <button type="button" class="btn-full" id="btnFull">📊 Software ตัวเต็ม</button>
     <a class="btn-line" href="full.html" style="background:#f5a623;color:#111">🛒 ซื้อเวอร์ชันเต็ม</a>
     <a class="btn-line" href="https://lin.ee/qEiKChvX" target="_blank" rel="noopener">💬 LINE OA</a>
   </div>
@@ -173,26 +172,6 @@
 <div id="dlCount">Download: <span id="dlNum">0</span></div>
 
 <a class="btn-line line-fab" href="https://lin.ee/qEiKChvX" target="_blank" rel="noopener" aria-label="แอด LINE OA">💬 LINE</a>
-
-<div id="presModal" role="dialog" aria-modal="true" aria-label="DashTron Gauge นำเสนอลูกค้า">
-  <div class="bar">
-    <span class="ttl">DashTron Gauge · Software ตัวเต็ม</span>
-    <a class="btn-line" href="https://lin.ee/qEiKChvX" target="_blank" rel="noopener">💬 LINE OA</a>
-    <button type="button" class="ghost" id="presClose">✕ ปิด</button>
-  </div>
-  <iframe id="presFrame" title="DashTron Gauge นำเสนอลูกค้า" allowfullscreen></iframe>
-</div>
-
-<script>
-(function(){
-  var m=document.getElementById('presModal'),f=document.getElementById('presFrame');
-  function open(){ if(!f.getAttribute('src')) f.setAttribute('src','presentation.html'); m.classList.add('open'); document.body.style.overflow='hidden'; }
-  function close(){ m.classList.remove('open'); document.body.style.overflow=''; }
-  document.getElementById('btnFull').addEventListener('click',open);
-  document.getElementById('presClose').addEventListener('click',close);
-  document.addEventListener('keydown',function(e){ if(e.key==='Escape') close(); });
-})();
-</script>
 
 <script type="module">
 import { ESPLoader, Transport } from "https://cdn.jsdelivr.net/npm/esptool-js@0.5.4/bundle.js";

@@ -92,7 +92,7 @@
 
 <header>
   <img src="assets/jmcu.jpg" alt="JMCU" onerror="this.replaceWith(Object.assign(document.createElement('h1'),{className:'fallback',textContent:'JMCU'}))">
-  <p class="sub">รายละเอียด DashTron · ติดตั้งเวอร์ชันใช้งานจริงด้วยรหัสที่ได้รับจากผู้ขาย</p>
+  <p class="sub">รายละเอียด DashTron · ติดตั้งเวอร์ชันใช้งานจริงได้ทันที</p>
   <div class="cta">
     <a class="btn-full" href="index.html" style="text-decoration:none">← กลับหน้าหลัก (ทดลองใช้)</a>
     <a class="btn-line" href="https://lin.ee/qEiKChvX" target="_blank" rel="noopener">💬 LINE OA</a>
@@ -150,7 +150,7 @@
     <!-- ===== ติดตั้ง ===== -->
     <section class="box">
       <h2>ติดตั้งเวอร์ชันใช้งานจริง</h2>
-      <p class="hint" style="margin:0 0 12px">ติดตั้งเฟิร์มแวร์ DashTron เวอร์ชันใช้งานจริงลงบอร์ดของคุณ ด้วยรหัสที่ได้รับจากผู้ขาย</p>
+      <p class="hint" style="margin:0 0 12px">ติดตั้งเฟิร์มแวร์ DashTron เวอร์ชันใช้งานจริงลงบอร์ดของคุณ เชื่อมต่อบอร์ดแล้วกดติดตั้งได้ทันที</p>
       <div class="tabs">
         <button class="tab on" id="tabAutoBtn">DashTron (ติดตั้งเวอร์ชันใช้งานจริง)</button>
         <button class="tab" id="tabManualBtn">ESP Tool (เลือกไฟล์เอง)</button>
@@ -158,17 +158,11 @@
 
       <!-- โหมดอัตโนมัติ: โหลดจาก manifest -->
       <div class="pane on" id="paneAuto">
-        <div class="row" id="gate" style="margin-bottom:10px">
-          <input type="text" id="codeInput" placeholder="XXXX-XXXX-XXXX" maxlength="19" autocomplete="off" spellcheck="false"
-                 style="font-family:monospace;letter-spacing:2px;text-transform:uppercase;min-width:200px">
-          <button id="btnRedeem">🔑 ยืนยันรหัส</button>
-        </div>
-        <p class="status" id="countdown" style="font-size:20px;font-weight:700;display:none"></p>
-        <p class="status" id="gateMsg">กรอกรหัสที่ได้รับจากผู้ขาย (ใช้ได้ครั้งเดียว)</p>
+        <p class="status" id="gateMsg">กำลังโหลดรายการเฟิร์มแวร์…</p>
         <div class="chips" id="variants"></div>
         <p class="status" id="fwInfo"></p>
         <div class="row" style="margin-top:8px">
-          <button id="btnFlash" disabled style="display:none">⚡ ติดตั้งเวอร์ชันใช้งานจริง</button>
+          <button id="btnFlash" disabled>⚡ ติดตั้งเวอร์ชันใช้งานจริง</button>
         </div>
         <details style="margin-top:10px">
           <summary class="status" style="cursor:pointer">ตั้งค่าขั้นสูง</summary>
@@ -229,9 +223,7 @@ const terminal = {
 let manifest = null, selected = null;
 let port = null, transport = null, loader = null;
 let connected = false, busy = false, dirty = false;
-/* ขั้นตอนหน้าใส่รหัส: idle → checking → countdown → done */
-let gatePhase = "idle", autoStart = false, downloadsDone = false, deadline = 0, tick = null, abortCtl = null, flashOk = false;
-const COUNTDOWN_SEC = 60;
+let manifestErr = "";
 
 if (!("serial" in navigator)) $("noSerial").style.display = "block";
 
@@ -243,12 +235,11 @@ function updateUI(){
   $("btnReset").disabled = busy || !connected;
   $("btnFlash").disabled = busy || !connected || !selected;
   $("btnAddRow").disabled = busy;
-  /* ต้องต่อบอร์ดให้พร้อม (Connect) ก่อน จึงกรอกรหัสได้ */
-  const gateOn = connected && !busy && gatePhase === "idle";
-  $("codeInput").disabled = !gateOn; $("btnRedeem").disabled = !gateOn;
-  if(gatePhase === "idle") gateMsg(connected
-    ? "บอร์ดพร้อมแล้ว — กรอกรหัสแล้วกด ยืนยันรหัส ระบบจะเริ่มติดตั้งเวอร์ชันใช้งานจริงอัตโนมัติ (มีเวลา 1 นาที)"
-    : "⚠️ ต่อบอร์ดให้พร้อมก่อน: เสียบสาย USB แล้วกด Connect ด้านบน จากนั้นจึงกรอกรหัสได้", connected ? "" : "err");
+  if(manifestErr) gateMsg(manifestErr, "err");
+  else if(!connected) gateMsg("⚠️ ต่อบอร์ดให้พร้อมก่อน: เสียบสาย USB แล้วกด Connect ด้านบน", "err");
+  else if(!manifest) gateMsg("กำลังโหลดรายการเฟิร์มแวร์…");
+  else if(!selected) gateMsg("บอร์ดพร้อมแล้ว — กดเลือกชิปของจอ แล้วกดติดตั้ง");
+  else gateMsg("บอร์ดพร้อมแล้ว — กดติดตั้งเวอร์ชันใช้งานจริงได้เลย", "ok");
 }
 
 async function runBusy(fn){
@@ -275,114 +266,23 @@ $("tabAutoBtn").onclick = () => showTab(true);
 $("tabManualBtn").onclick = () => showTab(false);
 $("btnClear").onclick = () => terminal.clean();
 
-/* ================= ตรวจรหัสกับรายการที่ webdashtron เก็บไว้ ================= */
-/* แก้ 2 ค่านี้ให้ตรงกับ repo ของ webdashtron */
-const CODES_SRC = { owner:"jmcumicrocontrollerunit-eng", repo:"JmcuMicrocontroller", branch:"main", path:"codes/codes.json" };
+/* ================= โหลดรายการเฟิร์มแวร์ ================= */
 const INSTALLER_MANIFEST_URL = "https://raw.githubusercontent.com/jmcumicrocontrollerunit-eng/JmcuMicrocontroller/main/firmware-installer/manifest.json";
-/* ต้องตรงกับ webdashtron ทุกตัวอักษร */
-const HASH_SALT = "dashtron-codes-v1", HASH_ITER = 100000;
-
-const normCode = v => String(v||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
-async function hashCode(code){
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(normCode(code)), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({name:"PBKDF2", hash:"SHA-256", salt:new TextEncoder().encode(HASH_SALT), iterations:HASH_ITER}, key, 256);
-  return [...new Uint8Array(bits)].map(b=>b.toString(16).padStart(2,"0")).join("");
-}
-async function loadCodes(){
-  const c = CODES_SRC;
-  const r = await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/${c.path}?ref=${encodeURIComponent(c.branch)}&t=${Date.now()}`,
-    {cache:"no-store", headers:{Accept:"application/vnd.github.raw+json"}});
-  if(r.status === 404) return [];
-  if(r.status === 403 || r.status === 429) throw new Error("ระบบตรวจรหัสไม่ว่างชั่วคราว กรุณารอสักครู่แล้วลองใหม่");
-  if(!r.ok) throw new Error("ตรวจรหัสไม่ได้ (HTTP " + r.status + ")");
-  const j = JSON.parse(await r.text());
-  return Array.isArray(j.codes) ? j.codes : [];
-}
-
-function fmtCode(v){ const c=normCode(v).slice(0,12); return c.match(/.{1,4}/g)?.join("-")||""; }
-$("codeInput").addEventListener("input", e => { e.target.value = fmtCode(e.target.value); });
-$("codeInput").addEventListener("keydown", e => { if(e.key==="Enter") $("btnRedeem").click(); });
 function gateMsg(t, cls=""){ $("gateMsg").textContent = t; $("gateMsg").className = "status " + cls; }
-
-$("btnRedeem").onclick = async () => {
-  const code = $("codeInput").value.trim();
-  if(normCode(code).length < 12){ gateMsg("กรุณากรอกรหัสให้ครบ 12 ตัว", "err"); return; }
-  gatePhase = "checking"; updateUI(); gateMsg("กำลังตรวจสอบรหัส…");
+async function loadManifest(){
   try{
-    const [h, list] = await Promise.all([hashCode(code), loadCodes()]);
-    const hit = list.find(x => x.h === h);
-    if(!hit) throw new Error("ไม่พบรหัสนี้ หรือรหัสถูกใช้งานไปแล้ว");
     const r = await fetch(INSTALLER_MANIFEST_URL + "?t=" + Date.now(), {cache:"no-store"});
     if(!r.ok) throw new Error("โหลดรายการไฟล์ Installer ไม่ได้ (HTTP " + r.status + ")");
     const m = await r.json();
-    m.variants = (m.variants||[]).filter(v => !hit.chip || String(v.chip).toLowerCase() === String(hit.chip).toLowerCase());
-    if(!m.variants.length) throw new Error("ไม่มีไฟล์สำหรับชิปของรหัสนี้");
-    manifest = m;
-    $("gate").style.display = "none";
+    if(!(m.variants||[]).length) throw new Error("ไม่มีไฟล์เฟิร์มแวร์ให้ติดตั้ง");
+    manifest = m; manifestErr = "";
     $("fwInfo").textContent = `${m.product||"DashTron"}` + (m.version ? ` · v${m.version}` : "");
-    selected = null; renderVariants();
-    log("ยืนยันรหัสสำเร็จ — เริ่มนับเวลา " + COUNTDOWN_SEC + " วินาที");
-    gatePhase = "countdown"; downloadsDone = false; autoStart = true; startCountdown();
-    if(m.variants.length === 1){ gateMsg("✅ รหัสถูกต้อง — กำลังเริ่มติดตั้งเวอร์ชันใช้งานจริง…", "ok"); $("variants").children[0]?.click(); }
-    else gateMsg("✅ รหัสถูกต้อง — กดเลือกชิปของจอ ระบบจะเริ่มติดตั้งทันที", "ok");
+    renderVariants();
+    if(m.variants.length === 1) $("variants").children[0]?.click();
   }catch(e){
-    gatePhase = "idle"; updateUI();
-    gateMsg("❌ " + e.message, "err");
+    manifestErr = "❌ " + e.message;
   }
-};
-function fmtT(sec){ return Math.floor(sec/60) + ":" + String(sec%60).padStart(2,"0"); }
-function startCountdown(){
-  deadline = Date.now() + COUNTDOWN_SEC*1000;
-  const el = $("countdown"); el.style.display = "block"; el.className = "status";
-  clearInterval(tick);
-  tick = setInterval(() => {
-    if(downloadsDone) return;
-    const left = Math.max(0, Math.ceil((deadline - Date.now())/1000));
-    el.textContent = "⏱ เหลือเวลา " + fmtT(left);
-    el.style.color = left <= 10 ? "#ef4444" : "";
-    if(!connected){ abortCtl?.abort(); expire("บอร์ดหลุดการเชื่อมต่อ — กรุณาต่อบอร์ดแล้วกรอกรหัสใหม่"); }
-    else if(left <= 0){ abortCtl?.abort(); expire("หมดเวลา 1 นาที — กรุณากรอกรหัสใหม่"); }
-  }, 250);
-}
-function stopCountdown(msg){ clearInterval(tick); tick = null; $("countdown").textContent = msg; $("countdown").style.color = ""; }
-function resetGate(){  // กลับไปหน้ากรอกรหัส (ยังไม่ได้ติดตั้ง)
-  clearInterval(tick); tick = null; autoStart = false; downloadsDone = false; selected = null; manifest = null;
-  $("variants").innerHTML = ""; $("countdown").style.display = "none"; $("gate").style.display = ""; $("codeInput").value = "";
-  gatePhase = "idle"; updateUI();
-}
-function expire(msg){
-  if(gatePhase !== "countdown") return;
-  clearInterval(tick); tick = null;
-  if(!busy){ resetGate(); gateMsg("⌛ " + msg, "err"); }   // ถ้ากำลังโหลดอยู่ ให้ startAuto จัดการต่อ
-  else { gateMsg("⌛ " + msg, "err"); }
-}
-async function startAuto(){
-  if(!autoStart || !selected || busy) return;
-  autoStart = false;
-  const ac = abortCtl = new AbortController(); flashOk = false;
-  await runBusy(async () => {
-    const fileArray = [];
-    try{
-      for(const f of filesOf(selected)){
-        const u8 = await fetchFile(f, ac.signal);
-        fileArray.push({ data: u8ToBinStr(u8), address: f.address });
-      }
-    }catch(e){
-      if(ac.signal.aborted) throw new Error("หมดเวลา — ดาวน์โหลดไม่ทันใน 1 นาที กรุณากรอกรหัสใหม่");
-      throw e;
-    }
-    downloadsDone = true;
-    stopCountdown("✅ ดาวน์โหลดครบแล้ว — กำลังเขียนลงบอร์ด (ห้ามถอดสาย USB)");
-    await doFlash(fileArray);
-    flashOk = true;
-    gatePhase = "done";
-    $("countdown").textContent = "✅ เขียนลงบอร์ดสำเร็จ";
-    await completeCode();
-  });
-  if(!flashOk){ const m = $("status").textContent; resetGate(); gateMsg(m || "ติดตั้งไม่สำเร็จ — กรุณากรอกรหัสใหม่", "err"); }
-}
-async function completeCode(){
-  gateMsg("✅ ติดตั้งเวอร์ชันใช้งานจริงเสร็จแล้ว — หากต้องการติดตั้งซ้ำกรุณาติดต่อผู้ขาย", "ok");
+  updateUI();
 }
 function variantSize(v){
   if(Array.isArray(v.files)) return v.files.reduce((a,f)=>a+(f.size||0),0);
@@ -397,7 +297,7 @@ function renderVariants(){
     const kb = sz ? (sz/1024).toFixed(0) + " KB" : "";
     const date = v.ts ? new Date(v.ts).toLocaleString("th-TH") : "";
     d.innerHTML = `<input type="radio" name="v" value="${i}"><b>${v.label}</b><small>${[kb, date].filter(Boolean).join(" · ")}</small>`;
-    d.onclick = () => { selected = v; [...wrap.children].forEach(c=>c.classList.remove("sel")); d.classList.add("sel"); updateUI(); log("เลือกชิป " + v.chip); if(autoStart) startAuto(); };
+    d.onclick = () => { selected = v; [...wrap.children].forEach(c=>c.classList.remove("sel")); d.classList.add("sel"); updateUI(); log("เลือกชิป " + v.chip); };
     wrap.appendChild(d);
   });
 }
@@ -559,7 +459,6 @@ $("btnFlash").onclick = () => runBusy(async () => {
     fileArray.push({ data: u8ToBinStr(u8), address: f.address });
   }
   await doFlash(fileArray);
-  await completeCode();               // ติดตั้งสำเร็จ → เผารหัส
 });
 
 /* ---- โหมดเลือกไฟล์เอง (ESP Tool) ---- */
@@ -605,6 +504,7 @@ $("btnReset").onclick = () => runBusy(async () => {
 
 updateUI();
 renderCount();
+loadManifest();
 </script>
 </body>
 </html>
